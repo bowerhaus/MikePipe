@@ -62,6 +62,7 @@ def main():
             icon.icon = create_icon_image(streaming)
             label = "Streaming" if streaming else "Stopped"
             icon.title = f"MikePipe — {label}"
+            icon.update_menu()
 
     sender = Sender(host, port=port, device=device, on_state_change=update_tray)
 

@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -92,16 +92,28 @@ def generate_icns(img):
     generate_icns_with_pillow(img)
 
 
+def add_rounded_background(img, size, bg_color=(50, 50, 50, 200), radius=10, padding=4):
+    """Add a rounded rectangle background behind the icon."""
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+    draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=bg_color)
+    # Resize icon to fit within the background with padding
+    icon_size = size - padding * 2
+    icon_resized = img.resize((icon_size, icon_size), Image.LANCZOS)
+    canvas.paste(icon_resized, (padding, padding), icon_resized)
+    return canvas
+
+
 def generate_tray(img, path):
-    """Generate 64x64 tray icon for Windows."""
-    tray = img.resize((64, 64), Image.LANCZOS)
+    """Generate 64x64 tray icon for Windows with rounded background."""
+    tray = add_rounded_background(img, 64, bg_color=(120, 120, 120, 220), radius=12, padding=4)
     tray.save(path)
     print(f"  {path}")
 
 
 def generate_menubar(img, path):
-    """Generate 44x44 menu bar icon for Mac (retina @2x template image)."""
-    menubar = img.resize((44, 44), Image.LANCZOS)
+    """Generate 44x44 menu bar icon for Mac with rounded background."""
+    menubar = add_rounded_background(img, 44, bg_color=(120, 120, 120, 220), radius=8, padding=3)
     menubar.save(path)
     print(f"  {path}")
 

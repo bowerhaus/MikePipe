@@ -10,6 +10,7 @@ $shortcut = Join-Path $desktop "MikePipeSender.lnk"
 $ws = New-Object -ComObject WScript.Shell
 $s = $ws.CreateShortcut($shortcut)
 $s.TargetPath = $exe
+$s.IconLocation = "$exe,0"
 $s.Save()
 
 Write-Host "Done. Shortcut placed on Desktop."

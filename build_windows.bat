@@ -8,7 +8,7 @@ set "DESKTOP=%USERPROFILE%\Desktop"
 set "EXE=%~dp0dist\MikePipeSender.exe"
 set "SHORTCUT=%DESKTOP%\MikePipeSender.lnk"
 
-powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%SHORTCUT%'); $s.TargetPath = '%EXE%'; $s.Save()"
+powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%SHORTCUT%'); $s.TargetPath = '%EXE%'; $s.IconLocation = '%EXE%,0'; $s.Save()"
 
 echo Done. Shortcut placed on Desktop.
 pause
