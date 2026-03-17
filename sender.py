@@ -24,16 +24,24 @@ streaming = False
 lock = threading.Lock()
 
 
-def toggle_streaming():
+def start_streaming():
     global streaming
     with lock:
-        streaming = not streaming
-        state = "STREAMING" if streaming else "STOPPED"
-    print(f"\r[{state}]", flush=True)
+        if not streaming:
+            streaming = True
+            print("\r[STREAMING]", flush=True)
+
+
+def stop_streaming():
+    global streaming
+    with lock:
+        if streaming:
+            streaming = False
+            print("\r[STOPPED]", flush=True)
 
 
 def start_hotkey_listener():
-    """Listen for AltGr double-tap (two presses within 400ms)."""
+    """Double-tap AltGr to start streaming, single tap to stop."""
     from pynput import keyboard
 
     last_press_time = 0.0
@@ -45,10 +53,19 @@ def start_hotkey_listener():
         if key == keyboard.Key.alt_gr:
             now = time.time()
             if now - last_press_time < DOUBLE_TAP_WINDOW:
-                toggle_streaming()
+                start_streaming()
                 last_press_time = 0.0  # reset to avoid triple-tap
             else:
                 last_press_time = now
+                # Single tap stops streaming (after the double-tap window expires)
+                # We use a timer so we can distinguish single from double tap
+                threading.Timer(DOUBLE_TAP_WINDOW, _check_single_tap, args=(now,)).start()
+
+    def _check_single_tap(press_time):
+        nonlocal last_press_time
+        # If no second tap happened (last_press_time still matches), it was a single tap
+        if last_press_time == press_time:
+            stop_streaming()
 
     listener = keyboard.Listener(on_press=on_press)
     listener.daemon = True
@@ -83,7 +100,7 @@ def main():
 
     start_hotkey_listener()
 
-    print(f"Ready. Double-tap AltGr to start/stop streaming to {args.host}:{UDP_PORT}")
+    print(f"Ready. Double-tap AltGr to start, single tap to stop. Target: {args.host}:{UDP_PORT}")
     print("[STOPPED]")
 
     def audio_callback(indata, frames, time_info, status):
