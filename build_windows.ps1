@@ -1,5 +1,5 @@
 Write-Host "Building MikePipe Sender for Windows..."
-python -m PyInstaller --onefile --noconsole --name MikePipeSender tray_sender.py
+python -m PyInstaller --noconfirm --onefile --noconsole --name MikePipeSender --icon=assets\icon.ico --add-data "assets;assets" tray_sender.py
 
 Write-Host ""
 Write-Host "Creating shortcut on Desktop..."

@@ -25,54 +25,98 @@ Audio is captured on Windows, sent as raw PCM over UDP via Tailscale, and played
 - **Frame size**: 20ms (640 bytes) for low latency
 - **Transport**: UDP over Tailscale — encrypted, stable IPs, no NAT issues
 
+## Quick Start (Pre-built Releases)
+
+If you don't want to install Python or build from source, download the pre-built executables from the [GitHub Releases](https://github.com/bowerhaus/MikePipe/releases) page:
+
+- **Windows**: Download `MikePipeSender.exe`
+- **Mac**: Download `MikePipeReceiver.app`
+
+See the platform-specific instructions below for prerequisites and first-run setup.
+
 ## Prerequisites
-
-- **Both machines**: Python 3.8+, connected via [Tailscale](https://tailscale.com/)
-- **Mac**: [BlackHole](https://existential.audio/blackhole/) virtual audio driver installed
-
-## Setup
-
-### Mac
-
-```bash
-pip3 install -r requirements-mac.txt
-```
-
-Configure Mac dictation to use BlackHole as its input:
-1. System Settings → Keyboard → Dictation → turn on
-2. System Settings → Sound → Input → select **BlackHole**
 
 ### Windows
 
+- Connected to [Tailscale](https://tailscale.com/)
+- No additional software required if using the pre-built release
+
+### Mac
+
+- Connected to [Tailscale](https://tailscale.com/)
+- [BlackHole](https://existential.audio/blackhole/) virtual audio driver installed
+- Configure Mac dictation to use BlackHole as its input:
+  1. System Settings → Keyboard → Dictation → turn on
+  2. System Settings → Sound → Input → select **BlackHole**
+
+## Installation
+
+### Option 1: Pre-built Releases (Recommended)
+
+1. Go to [Releases](https://github.com/bowerhaus/MikePipe/releases) and download the latest version for your platform.
+2. **Windows**: Place `MikePipeSender.exe` anywhere convenient (e.g. Desktop). Double-click to run.
+3. **Mac**: Move `MikePipeReceiver.app` to your Applications folder or Desktop. If macOS Gatekeeper blocks the app, right-click → Open, or run:
+   ```bash
+   xattr -cr /path/to/MikePipeReceiver.app
+   ```
+
+### Option 2: Run from Source
+
+Requires Python 3.8+ on both machines.
+
+**Windows:**
 ```bash
+git clone https://github.com/bowerhaus/MikePipe.git
+cd MikePipe
 pip install -r requirements-windows.txt
-```
-
-## Running
-
-### Desktop Apps (recommended)
-
-**Windows — System Tray Sender:**
-
-On first launch, a config file is created at `%APPDATA%\MikePipe\mikepipe.ini`. Edit it to set your Mac's Tailscale IP address, then restart.
-
-```bash
 python tray_sender.py
 ```
 
-A system tray icon appears (green = streaming, grey = stopped). Right-click for options including "Open Config...".
-
-**Mac — Menu Bar Receiver:**
-
+**Mac:**
 ```bash
+git clone https://github.com/bowerhaus/MikePipe.git
+cd MikePipe
+pip3 install -r requirements-mac.txt
 python3 menubar_receiver.py
 ```
 
-A menu bar item shows the connection status. The receiver auto-detects BlackHole.
+### Option 3: Build from Source
+
+Build standalone executables yourself using PyInstaller.
+
+**Windows:**
+```bash
+build_windows.bat
+```
+Output: `dist\MikePipeSender.exe` with a desktop shortcut.
+
+**Mac** (must be run on the Mac itself):
+```bash
+chmod +x build_mac.sh
+./build_mac.sh
+```
+Output: `dist/MikePipeReceiver.app` with a desktop alias.
+
+## Usage
+
+### Windows Sender
+
+1. **Launch** `MikePipeSender.exe` (or `python tray_sender.py` from source).
+2. **First run**: A config file is created automatically. Right-click the system tray icon → **Open Config...** to set your Mac's Tailscale IP address, then restart the app.
+3. **Start streaming**: Double-tap **Right Ctrl**.
+4. **Stop streaming**: Single tap **Right Ctrl**.
+5. The tray icon changes to show streaming status — a microphone icon with a red dot when active.
+
+### Mac Receiver
+
+1. **Launch** `MikePipeReceiver.app` (or `python3 menubar_receiver.py` from source).
+2. A microphone icon appears in the menu bar. It changes to show a red indicator when audio is being received.
+3. The receiver auto-detects BlackHole as its output device. Audio received from the Windows sender is played into BlackHole, where Mac dictation picks it up.
+4. Click the menu bar icon for status info, or to quit.
 
 ### CLI Mode
 
-The original command-line scripts still work:
+The original command-line scripts are also available for advanced use or debugging:
 
 ```bash
 # Mac (start first)
@@ -83,31 +127,6 @@ python sender.py <mac-tailscale-ip>
 ```
 
 Use `--list-devices` on either script to choose a specific audio device.
-
-### Hotkey
-
-- **Double-tap Right Ctrl** to start streaming
-- **Single tap Right Ctrl** to stop
-
-## Building Standalone Executables
-
-Requires PyInstaller (included in platform requirements).
-
-**Windows:**
-```bash
-build_windows.bat
-```
-Output: `dist\MikePipeSender.exe`
-
-**Mac** (must be run on the Mac itself):
-```bash
-pip3 install -r requirements-mac.txt
-chmod +x build_mac.sh
-./build_mac.sh
-```
-Output: `dist/MikePipeReceiver`
-
-If Gatekeeper blocks the unsigned app, run `xattr -cr dist/MikePipeReceiver.app`.
 
 ## Config File
 
@@ -132,8 +151,9 @@ device =
 
 - **No audio received**: Check that both machines are on Tailscale and can ping each other. Ensure the receiver is running before the sender starts streaming.
 - **High latency**: Should be under 100ms with this setup. If not, check for network issues on Tailscale.
-- **Wrong mic**: Use `--list-devices` on the sender to pick the correct input device.
+- **Wrong mic**: Use `--list-devices` on the sender to pick the correct input device, then set it in the config file.
 - **BlackHole not found**: Ensure BlackHole is installed and restart the receiver. Use `--list-devices` to verify it appears.
+- **Mac app blocked by Gatekeeper**: Right-click the app → Open, or run `xattr -cr MikePipeReceiver.app`.
 - **`python` / `pip` not found on Mac**: Use `python3` and `pip3` instead.
 
 ## License

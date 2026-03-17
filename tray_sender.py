@@ -14,14 +14,30 @@ from sender import Sender, list_devices
 
 ICON_SIZE = 64
 
+# Load custom tray icons (off and on states)
+_base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+_tray_off_path = os.path.join(_base_dir, "assets", "icon_tray.png")
+_tray_on_path = os.path.join(_base_dir, "assets", "icon_tray_on.png")
+
+_ICON_OFF = None
+_ICON_ON = None
+if os.path.exists(_tray_off_path):
+    _ICON_OFF = Image.open(_tray_off_path).convert("RGBA").resize((ICON_SIZE, ICON_SIZE))
+if os.path.exists(_tray_on_path):
+    _ICON_ON = Image.open(_tray_on_path).convert("RGBA").resize((ICON_SIZE, ICON_SIZE))
+
 
 def create_icon_image(streaming):
-    """Generate a tray icon: green circle if streaming, grey if stopped."""
+    """Return the appropriate tray icon for the current state."""
+    if streaming and _ICON_ON:
+        return _ICON_ON.copy()
+    if not streaming and _ICON_OFF:
+        return _ICON_OFF.copy()
+    # Fallback: simple coloured circle
     img = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     color = (0, 200, 0, 255) if streaming else (128, 128, 128, 255)
-    margin = 8
-    draw.ellipse([margin, margin, ICON_SIZE - margin, ICON_SIZE - margin], fill=color)
+    draw.ellipse([8, 8, ICON_SIZE - 8, ICON_SIZE - 8], fill=color)
     return img
 
 
