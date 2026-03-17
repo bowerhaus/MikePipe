@@ -1,0 +1,5 @@
+-r requirements.txt
+pynput
+pystray
+Pillow
+pyinstaller

@@ -4,15 +4,14 @@ MikePipe streams microphone audio from a Windows laptop to a Mac desktop over a 
 
 Audio is captured on Windows, sent as raw PCM over UDP via Tailscale, and played into BlackHole (a virtual audio driver on the Mac). Mac dictation then reads from BlackHole as its input device. The result is near-real-time speech-to-text using the Windows mic, with under 100ms of latency.
 
-A hotkey on Windows controls streaming: double-tap Right Ctrl to start, single tap to stop.
-
 ## How It Works
 
 ```
 [Windows Laptop]                        [Mac Desktop]
 ┌──────────────────┐    UDP/Tailscale    ┌──────────────────┐
-│ sender.py        │───────────────────→│ receiver.py       │
-│ - Mic capture    │    port 12345       │ - Plays audio to  │
+│ tray_sender.py   │───────────────────→│ menubar_receiver  │
+│ - System tray    │    port 12345       │ - Menu bar icon   │
+│ - Mic capture    │                     │ - Plays audio to  │
 │ - Right Ctrl     │                     │   BlackHole       │
 │   hotkey toggle  │                     │                   │
 └──────────────────┘                     └──────────────────┘
@@ -36,7 +35,7 @@ A hotkey on Windows controls streaming: double-tap Right Ctrl to start, single t
 ### Mac
 
 ```bash
-pip3 install -r requirements.txt
+pip3 install -r requirements-mac.txt
 ```
 
 Configure Mac dictation to use BlackHole as its input:
@@ -46,48 +45,88 @@ Configure Mac dictation to use BlackHole as its input:
 ### Windows
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-windows.txt
 ```
 
 ## Running
 
-### 1. Find your Mac's Tailscale IP
+### Desktop Apps (recommended)
 
-On the Mac:
+**Windows — System Tray Sender:**
+
+On first launch, a config file is created at `%APPDATA%\MikePipe\mikepipe.ini`. Edit it to set your Mac's Tailscale IP address, then restart.
+
 ```bash
-tailscale ip -4
+python tray_sender.py
 ```
-Or check the Tailscale app. It will be something like `100.x.y.z`.
 
-### 2. Start the receiver on the Mac (start first, runs continuously)
+A system tray icon appears (green = streaming, grey = stopped). Right-click for options including "Open Config...".
+
+**Mac — Menu Bar Receiver:**
 
 ```bash
+python3 menubar_receiver.py
+```
+
+A menu bar item shows the connection status. The receiver auto-detects BlackHole.
+
+### CLI Mode
+
+The original command-line scripts still work:
+
+```bash
+# Mac (start first)
 python3 receiver.py
-```
 
-It auto-detects BlackHole. To use a different output device:
-```bash
-python3 receiver.py --list-devices
-python3 receiver.py --device 5
-```
-
-### 3. Start the sender on Windows
-
-```bash
+# Windows
 python sender.py <mac-tailscale-ip>
 ```
 
-To choose a specific mic:
+Use `--list-devices` on either script to choose a specific audio device.
+
+### Hotkey
+
+- **Double-tap Right Ctrl** to start streaming
+- **Single tap Right Ctrl** to stop
+
+## Building Standalone Executables
+
+Requires PyInstaller (included in platform requirements).
+
+**Windows:**
 ```bash
-python sender.py --list-devices
-python sender.py <mac-tailscale-ip> --device 2
+build_windows.bat
 ```
+Output: `dist\MikePipeSender.exe`
 
-### 4. Stream audio
+**Mac** (must be run on the Mac itself):
+```bash
+pip3 install -r requirements-mac.txt
+chmod +x build_mac.sh
+./build_mac.sh
+```
+Output: `dist/MikePipeReceiver`
 
-- **Double-tap Right Ctrl** to start streaming — console shows `[STREAMING]`
-- **Single tap Right Ctrl** to stop — console shows `[STOPPED]`
-- Speak into the Windows mic — Mac dictation transcribes your speech
+If Gatekeeper blocks the unsigned app, run `xattr -cr dist/MikePipeReceiver.app`.
+
+## Config File
+
+The sender reads settings from `mikepipe.ini`:
+
+- **Windows**: `%APPDATA%\MikePipe\mikepipe.ini`
+- **Mac**: `~/Library/Application Support/MikePipe/mikepipe.ini`
+
+```ini
+[sender]
+# Mac receiver Tailscale IP address (required)
+host = 100.64.1.23
+
+# UDP port (default: 12345)
+port = 12345
+
+# Mic input device index (leave blank for system default)
+device =
+```
 
 ## Troubleshooting
 
