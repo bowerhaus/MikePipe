@@ -3,6 +3,7 @@
 import argparse
 import socket
 import sys
+import threading
 import time
 
 import numpy as np
@@ -19,6 +20,90 @@ FRAME_BYTES = FRAME_SAMPLES * 2  # 640 bytes
 UDP_PORT = 12345
 SOCKET_BUFFER = 65536
 SILENCE_TIMEOUT = 2.0  # seconds before showing "waiting" status
+
+
+class Receiver:
+    """Listens for UDP audio and plays it to an output device."""
+
+    def __init__(self, device=None, port=UDP_PORT, on_state_change=None):
+        self.port = port
+        self.on_state_change = on_state_change
+
+        # Resolve output device
+        if device is not None:
+            self.device = device
+            self.device_name = sd.query_devices(device)["name"]
+        else:
+            self.device, self.device_name = find_blackhole_device()
+            if self.device is None:
+                raise RuntimeError("BlackHole device not found. Install BlackHole or specify a device.")
+
+        self._receiving = False
+        self._last_recv_time = 0.0
+        self._sock = None
+        self._stream = None
+        self._running = False
+        self._thread = None
+
+    @property
+    def is_receiving(self):
+        return self._receiving
+
+    def start(self):
+        """Open socket and audio output, begin receiving in a background thread."""
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._sock.bind(("0.0.0.0", self.port))
+        self._sock.settimeout(0.5)
+
+        self._stream = sd.OutputStream(
+            samplerate=SAMPLE_RATE,
+            channels=CHANNELS,
+            dtype=DTYPE,
+            blocksize=FRAME_SAMPLES,
+            device=self.device,
+        )
+        self._stream.start()
+        self._running = True
+        self._thread = threading.Thread(target=self._receive_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        """Stop receiving and close resources."""
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=2.0)
+            self._thread = None
+        if self._stream:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None
+        if self._sock:
+            self._sock.close()
+            self._sock = None
+        self._set_receiving(False)
+
+    def _set_receiving(self, receiving, addr=None):
+        if receiving != self._receiving:
+            self._receiving = receiving
+            if self.on_state_change:
+                self.on_state_change(receiving, addr)
+
+    def _receive_loop(self):
+        while self._running:
+            try:
+                data, addr = self._sock.recvfrom(SOCKET_BUFFER)
+            except socket.timeout:
+                if self._receiving and (time.time() - self._last_recv_time > SILENCE_TIMEOUT):
+                    self._set_receiving(False)
+                continue
+            except OSError:
+                break
+
+            self._set_receiving(True, addr)
+            self._last_recv_time = time.time()
+
+            audio = np.frombuffer(data, dtype=np.int16).reshape(-1, 1)
+            self._stream.write(audio)
 
 
 def find_blackhole_device():
@@ -56,63 +141,33 @@ def main():
 
     list_devices()
 
-    # Resolve output device
-    if args.device is not None:
-        device_index = args.device
-        device_name = sd.query_devices(device_index)["name"]
-    else:
-        device_index, device_name = find_blackhole_device()
-        if device_index is None:
-            print("Error: BlackHole device not found. Install BlackHole or specify --device.", file=sys.stderr)
-            sys.exit(1)
+    def on_state_change(receiving, addr):
+        if receiving:
+            print(f"\rReceiving audio from {addr[0]}", flush=True)
+        else:
+            print("\rWaiting for sender...", flush=True)
 
-    print(f"Output device: [{device_index}] {device_name}")
+    try:
+        receiver = Receiver(device=args.device, on_state_change=on_state_change)
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
-    # Open UDP socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("0.0.0.0", UDP_PORT))
-    sock.settimeout(0.5)
-
+    print(f"Output device: [{receiver.device}] {receiver.device_name}")
     print(f"Listening on UDP port {UDP_PORT}...")
     print("Waiting for sender...")
 
-    receiving = False
-    last_recv_time = 0.0
-
     try:
-        with sd.OutputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype=DTYPE,
-            blocksize=FRAME_SAMPLES,
-            device=device_index,
-        ) as stream:
-            while True:
-                try:
-                    data, addr = sock.recvfrom(SOCKET_BUFFER)
-                except socket.timeout:
-                    if receiving and (time.time() - last_recv_time > SILENCE_TIMEOUT):
-                        receiving = False
-                        print("\rWaiting for sender...", flush=True)
-                    continue
-
-                if not receiving:
-                    receiving = True
-                    print(f"\rReceiving audio from {addr[0]}", flush=True)
-
-                last_recv_time = time.time()
-
-                # Convert bytes to numpy array and write to output
-                audio = np.frombuffer(data, dtype=np.int16).reshape(-1, 1)
-                stream.write(audio)
-
+        receiver.start()
+        while True:
+            time.sleep(0.1)
     except KeyboardInterrupt:
         print("\nShutting down.")
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     finally:
-        sock.close()
+        receiver.stop()
 
 
 if __name__ == "__main__":

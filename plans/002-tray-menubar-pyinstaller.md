@@ -3,7 +3,13 @@
 **GitHub Issue**: [#2](https://github.com/bowerhaus/MikePipe/issues/2)
 
 ## Context
-MikePipe's core streaming (sender.py + receiver.py) works well. The goal is to make it easy to install and use daily: a standalone app with a system tray icon (Windows) and menu bar icon (Mac), packaged as a single executable per platform. The sender will read the Mac's Tailscale IP from a config file (`mikepipe.ini`).
+MikePipe's core streaming (sender.py + receiver.py) works well. The goal is to make it easy to install and use daily: a standalone app with a system tray icon (Windows) and menu bar icon (Mac), packaged as a single executable per platform. The sender will read the Mac's Tailscale IP and mic device from a config file (`mikepipe.ini`).
+
+## Decisions
+
+- **Config location**: Standard OS paths — `%APPDATA%\MikePipe\mikepipe.ini` (Windows), `~/Library/Application Support/MikePipe/mikepipe.ini` (Mac)
+- **Config scope**: Sender only — host, port, and mic device index. Receiver auto-detects BlackHole (no config needed).
+- **Config created automatically** on first launch with commented template.
 
 ## Implementation Steps
 
@@ -16,17 +22,17 @@ MikePipe's core streaming (sender.py + receiver.py) works well. The goal is to m
 **Files:** `sender.py`, `receiver.py`
 
 ### Step 2: Add config file support for sender
-- Read `mikepipe.ini` from the same directory as the executable (or script)
-- Format: INI with `[sender]` section containing `host` and optional `port`
-- If config file missing, create a template and print an error message
-- Add a `config.py` helper module
+- Create `config.py` helper module with `get_config_dir()` and `load_config()`
+- Config location: `%APPDATA%\MikePipe\` (Windows), `~/Library/Application Support/MikePipe/` (Mac)
+- If config file missing, create it with a commented template and print instructions
+- Format: INI with `[sender]` section
 
-**Files:** `config.py` (new), `mikepipe.ini` (new — template/example)
+**Files:** `config.py` (new)
 
 ### Step 3: Create Windows system tray app (`tray_sender.py`)
 - Use `pystray` for the system tray icon
 - Generate icon programmatically with `Pillow` (green circle = streaming, grey = stopped)
-- Menu items: status label (disabled), separator, "Quit"
+- Menu items: status label (disabled), separator, "Open Config...", "Quit"
 - Hotkey (Right Ctrl double-tap/single-tap) continues to work via `pynput` in a background thread
 - `pystray` runs in the main thread; audio + hotkey in background threads
 - Add `pystray` and `Pillow` to requirements
@@ -44,8 +50,8 @@ MikePipe's core streaming (sender.py + receiver.py) works well. The goal is to m
 **Files:** `menubar_receiver.py` (new), `requirements.txt`
 
 ### Step 5: PyInstaller build scripts
-- **Windows:** `build_windows.bat` — runs `pyinstaller --onefile --noconsole --icon=icon.ico tray_sender.py`
-- **Mac:** `build_mac.sh` — runs `pyinstaller --onefile --windowed --icon=icon.icns menubar_receiver.py`
+- **Windows:** `build_windows.bat` — runs `pyinstaller --onefile --noconsole tray_sender.py`
+- **Mac:** `build_mac.sh` — runs `pyinstaller --onefile --windowed menubar_receiver.py`
 - Create PyInstaller spec files if needed for data file bundling
 - `sounddevice` hooks handle PortAudio automatically on both platforms
 - Note: Mac build must be done on the Mac itself
@@ -53,32 +59,39 @@ MikePipe's core streaming (sender.py + receiver.py) works well. The goal is to m
 **Files:** `build_windows.bat` (new), `build_mac.sh` (new)
 
 ### Step 6: Update requirements.txt with platform-specific deps
-```
-sounddevice
-numpy
-pynput          # Windows only (sender)
-pystray         # Windows only (tray sender)
-Pillow          # Windows only (tray icon generation)
-rumps           # Mac only (menu bar receiver)
-```
-Consider splitting into `requirements-windows.txt` and `requirements-mac.txt`.
+Split into platform-specific files:
+- `requirements.txt` — shared deps (`sounddevice`, `numpy`)
+- `requirements-windows.txt` — sender deps (`pynput`, `pystray`, `Pillow`)
+- `requirements-mac.txt` — receiver deps (`rumps`)
 
-**Files:** `requirements.txt` (or split files)
+**Files:** `requirements.txt`, `requirements-windows.txt` (new), `requirements-mac.txt` (new)
 
 ### Step 7: Update README.md and CLAUDE.md
 - Document the tray/menu bar apps
-- Document the config file
+- Document the config file location and format
 - Document the build process
 
 **Files:** `README.md`, `CLAUDE.md`
 
-## Config File Format
+## Config File
+
+**Location:**
+- Windows: `%APPDATA%\MikePipe\mikepipe.ini`
+- Mac: `~/Library/Application Support/MikePipe/mikepipe.ini`
+
+**Format (sender only):**
 ```ini
 [sender]
+# Mac receiver Tailscale IP address
 host = 100.64.1.23
+
+# UDP port (default: 12345)
 port = 12345
+
+# Mic input device index (leave blank for system default)
+# Run "python sender.py --list-devices" to see available devices
+device =
 ```
-Placed next to the `.exe` (or in the script directory during development).
 
 ## Tray/Menu Bar UI
 
@@ -99,6 +112,6 @@ Placed next to the `.exe` (or in the script directory during development).
 
 ## Verification
 1. **Dev testing (no PyInstaller):** Run `python tray_sender.py` on Windows — tray icon appears, hotkey works, status updates. Run `python3 menubar_receiver.py` on Mac — menu bar icon appears, receives audio.
-2. **Config file:** Delete `mikepipe.ini`, run sender — should show error/create template. Add IP, restart — should connect.
-3. **PyInstaller builds:** Run build scripts, test the resulting executables on clean machines (no Python installed).
+2. **Config file:** Delete config, run sender — should create template at the standard OS location. Edit IP, restart — should connect.
+3. **PyInstaller builds:** Run build scripts, test the resulting executables on both platforms.
 4. **End-to-end:** Windows .exe streaming to Mac .app, verify dictation works.
