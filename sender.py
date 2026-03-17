@@ -1,0 +1,118 @@
+"""MikePipe Sender — streams Windows mic audio over UDP to the Mac receiver."""
+
+import argparse
+import socket
+import sys
+import threading
+import time
+
+import numpy as np
+import sounddevice as sd
+
+# Audio config
+SAMPLE_RATE = 16000
+CHANNELS = 1
+DTYPE = "int16"
+FRAME_MS = 20
+FRAME_SAMPLES = int(SAMPLE_RATE * FRAME_MS / 1000)  # 320 samples
+FRAME_BYTES = FRAME_SAMPLES * 2  # 640 bytes (16-bit)
+
+UDP_PORT = 12345
+
+# Hotkey state
+streaming = False
+lock = threading.Lock()
+
+
+def toggle_streaming():
+    global streaming
+    with lock:
+        streaming = not streaming
+        state = "STREAMING" if streaming else "STOPPED"
+    print(f"\r[{state}]", flush=True)
+
+
+def start_hotkey_listener():
+    """Listen for AltGr double-tap (two presses within 400ms)."""
+    from pynput import keyboard
+
+    last_press_time = 0.0
+    DOUBLE_TAP_WINDOW = 0.4  # seconds
+
+    def on_press(key):
+        nonlocal last_press_time
+        # AltGr appears as Key.alt_gr on Windows
+        if key == keyboard.Key.alt_gr:
+            now = time.time()
+            if now - last_press_time < DOUBLE_TAP_WINDOW:
+                toggle_streaming()
+                last_press_time = 0.0  # reset to avoid triple-tap
+            else:
+                last_press_time = now
+
+    listener = keyboard.Listener(on_press=on_press)
+    listener.daemon = True
+    listener.start()
+
+
+def list_devices():
+    print("Available input devices:")
+    devices = sd.query_devices()
+    for i, d in enumerate(devices):
+        if d["max_input_channels"] > 0:
+            marker = " <-- default" if i == sd.default.device[0] else ""
+            print(f"  [{i}] {d['name']}{marker}")
+    print()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="MikePipe Sender — stream mic audio over UDP")
+    parser.add_argument("host", help="Mac receiver IP address (Tailscale IP)")
+    parser.add_argument("--device", type=int, default=None, help="Input device index (default: system default)")
+    parser.add_argument("--list-devices", action="store_true", help="List audio input devices and exit")
+    args = parser.parse_args()
+
+    if args.list_devices:
+        list_devices()
+        sys.exit(0)
+
+    list_devices()
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    dest = (args.host, UDP_PORT)
+
+    start_hotkey_listener()
+
+    print(f"Ready. Double-tap AltGr to start/stop streaming to {args.host}:{UDP_PORT}")
+    print("[STOPPED]")
+
+    def audio_callback(indata, frames, time_info, status):
+        if status:
+            print(f"Audio status: {status}", file=sys.stderr)
+        with lock:
+            is_streaming = streaming
+        if is_streaming:
+            sock.sendto(indata.tobytes(), dest)
+
+    device_index = args.device if args.device is not None else sd.default.device[0]
+
+    try:
+        with sd.InputStream(
+            samplerate=SAMPLE_RATE,
+            channels=CHANNELS,
+            dtype=DTYPE,
+            blocksize=FRAME_SAMPLES,
+            device=device_index,
+            callback=audio_callback,
+        ):
+            while True:
+                time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\nShutting down.")
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
