@@ -6,23 +6,20 @@ See [plans/001-windows-mic-to-mac-audio-pipe.md](plans/001-windows-mic-to-mac-au
 ## Branch
 `windows-mic-to-mac-audio-pipe` (based off `main`)
 
-## Status: Steps 1-4 complete, ready for testing
+## Status: COMPLETE
 
 ## Steps
 - [x] Step 1: Create `requirements.txt`
 - [x] Step 2: Create `sender.py` (Windows — mic capture + hotkey + UDP send)
 - [x] Step 3: Create `receiver.py` (Mac — UDP receive + BlackHole playback)
 - [x] Step 4: Create `README.md`
-- [ ] Step 5: Package as desktop-launchable apps (PyInstaller)
-- [ ] Testing & verification
+- [x] Step 5: Package as desktop-launchable apps — moved to [Plan 002](plans/002-tray-menubar-pyinstaller.md)
+- [x] Testing & verification — tested on real hardware (see below)
+- [x] Additional: MIT license, .gitattributes for cross-platform line endings
 
-## Context for Resume
-- Project streams Windows mic audio to Mac over Tailscale for dictation use
-- Uses Python `sounddevice` library with small 20ms frames for low latency
-- BlackHole already installed on Mac
-- Hotkey: double-tap AltGr to toggle streaming
-- Audio format: 16kHz, 16-bit, mono PCM over UDP port 12345
-- FFmpeg was tried before and had ~10s latency — must avoid large buffers
-- Steps 1-4 implemented: requirements.txt, sender.py, receiver.py, README.md all created
-- Step 5 (PyInstaller packaging) and testing still pending
-- Need to test on actual hardware: run receiver.py on Mac, sender.py on Windows
+## Testing Performed
+- Receiver launched on Mac (`python3 receiver.py`) — auto-detected BlackHole, listening on UDP 12345
+- Sender launched on Windows (`python sender.py <mac-tailscale-ip>`) — connected successfully
+- Hotkey: double-tap Right Ctrl starts streaming, single tap stops — confirmed working
+- Audio received on Mac and played to BlackHole — verified with Mac dictation
+- Hotkey changed from AltGr to Right Ctrl to align with Mac dictation shortcut via Jump Desktop

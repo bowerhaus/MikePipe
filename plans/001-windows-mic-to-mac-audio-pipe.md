@@ -1,6 +1,7 @@
-# MikePipe: Windows Mic → Mac Audio Pipe
+# MikePipe: Windows Mic → Mac Audio Pipe — COMPLETED
 
 **GitHub Issue**: [#1](https://github.com/bowerhaus/MikePipe/issues/1)
+**Status**: Complete (Steps 1-4 implemented and tested; Step 5 moved to [Plan 002](002-tray-menubar-pyinstaller.md))
 
 ## Context
 The user remotes into a Mac desktop from a Windows laptop via Jump Desktop. Jump Desktop doesn't forward microphone audio, so Mac dictation can't use the Windows mic. We need a separate audio pipe with hotkey activation.
