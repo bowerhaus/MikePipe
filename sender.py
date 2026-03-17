@@ -41,7 +41,7 @@ def stop_streaming():
 
 
 def start_hotkey_listener():
-    """Double-tap AltGr to start streaming, single tap to stop."""
+    """Double-tap Right Ctrl to start streaming, single tap to stop."""
     from pynput import keyboard
 
     last_press_time = 0.0
@@ -49,8 +49,8 @@ def start_hotkey_listener():
 
     def on_press(key):
         nonlocal last_press_time
-        # AltGr appears as Key.alt_gr on Windows
-        if key == keyboard.Key.alt_gr:
+        # Right Ctrl on Windows
+        if key == keyboard.Key.ctrl_r:
             now = time.time()
             if now - last_press_time < DOUBLE_TAP_WINDOW:
                 start_streaming()
@@ -100,7 +100,7 @@ def main():
 
     start_hotkey_listener()
 
-    print(f"Ready. Double-tap AltGr to start, single tap to stop. Target: {args.host}:{UDP_PORT}")
+    print(f"Ready. Double-tap Right Ctrl to start, single tap to stop. Target: {args.host}:{UDP_PORT}")
     print("[STOPPED]")
 
     def audio_callback(indata, frames, time_info, status):
