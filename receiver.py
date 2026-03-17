@@ -19,7 +19,7 @@ FRAME_BYTES = FRAME_SAMPLES * 2  # 640 bytes
 
 UDP_PORT = 12345
 SOCKET_BUFFER = 65536
-SILENCE_TIMEOUT = 2.0  # seconds before showing "waiting" status
+SILENCE_TIMEOUT = 0.5  # seconds before showing "waiting" status
 
 
 class Receiver:

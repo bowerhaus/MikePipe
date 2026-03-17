@@ -1,4 +1,4 @@
-# Plan: MikePipe Option C — Tray/Menu Bar Apps + PyInstaller
+# Plan: MikePipe Option C — Tray/Menu Bar Apps + PyInstaller [COMPLETE]
 
 **GitHub Issue**: [#2](https://github.com/bowerhaus/MikePipe/issues/2)
 

@@ -1,15 +1,15 @@
-# Progress: 002 - Tray/Menu Bar Apps + PyInstaller
+# Progress: 002 - Tray/Menu Bar Apps + PyInstaller [COMPLETE]
 
 ## Plan
 See [plans/002-tray-menubar-pyinstaller.md](plans/002-tray-menubar-pyinstaller.md)
 
 ## Branch
-`tray-menubar-pyinstaller` (based off `windows-mic-to-mac-audio-pipe`)
+`tray-menubar-pyinstaller` (based off `main`)
 
 ## GitHub Issue
 [#2](https://github.com/bowerhaus/MikePipe/issues/2)
 
-## Status: All steps complete — Windows build tested, Mac build not yet tested
+## Status: COMPLETE
 
 ## Steps
 - [x] Step 1: Refactor sender.py and receiver.py into importable modules
@@ -28,50 +28,16 @@ See [plans/002-tray-menubar-pyinstaller.md](plans/002-tray-menubar-pyinstaller.m
 - rumps handles NSApplication run loop; UDP receiver in daemon thread
 - Mac build must be done on the Mac itself
 
-## Step 4 Notes
-- `menubar_receiver.py`: uses `rumps` for Mac menu bar
-- Title: "MikePipe" (idle) / red circle + "MikePipe" (receiving)
-- Menu: status label ("Waiting for sender..." / "Receiving from x.x.x.x"), "Quit"
-- Receiver runs in daemon thread via `Receiver.start()`, rumps on main thread
-- Auto-detects BlackHole device via Receiver class
-
-## Step 3 Notes
-- `tray_sender.py`: uses `pystray` + `Pillow` for system tray icon
-- Green circle = streaming, grey circle = stopped
-- Menu: "MikePipe Sender" (disabled label), separator, "Open Config...", "Quit"
-- Tooltip updates: "MikePipe — Streaming" / "MikePipe — Stopped"
-- pystray runs on main thread, sender + hotkey on daemon thread
-- Reads config via `load_config()` from config.py
-
-## Step 2 Notes
-- `config.py`: `get_config_dir()`, `get_config_path()`, `ensure_config()`, `load_config()`
-- `load_config()` returns `(host, port, device)` — device is None if not set
-- Auto-creates config with commented template on first run
-- Exits with helpful message if host not configured
-- Windows: `%APPDATA%\MikePipe\mikepipe.ini`, Mac: `~/Library/Application Support/MikePipe/mikepipe.ini`
-
-## Step 1 Notes
-- `Sender` class: `__init__(host, port, device, on_state_change)`, `start()`, `stop()`, `is_streaming`, `start_streaming()`, `stop_streaming()`, `start_hotkey_listener()`
-- `Receiver` class: `__init__(device, port, on_state_change)`, `start()`, `stop()`, `is_receiving`
-- `on_state_change` callback allows tray/menubar apps to react to state changes
-- Receiver runs its receive loop in a daemon thread (via `start()`), making it easy to integrate with `rumps`
-- Both CLI entry points (`if __name__ == "__main__"`) still work identically to before
-
-## Post-Implementation Notes
-- Fixed build scripts to use `python -m PyInstaller` instead of `pyinstaller` (not on PATH)
+## Testing Performed
 - Windows .exe build tested successfully via `build_windows.bat` → `dist\MikePipeSender.exe`
-- Config file auto-created at `%APPDATA%\MikePipe\mikepipe.ini` — user has opened and seen it
-- Nothing committed yet — user is staging manually
-- No changes have been committed to the branch yet
+- Mac build tested via `build_mac.sh` — PyInstaller completes, .app bundle created
+- Config file auto-created at `%APPDATA%\MikePipe\mikepipe.ini` on Windows
+- End-to-end: Windows sender streaming to Mac receiver, menu bar status indicator works
+- Mac menu bar app shows red circle when receiving, white circle when idle
 
-## What's Left
-- Test `python tray_sender.py` end-to-end (Windows tray → Mac receiver → dictation)
-- Test Mac build on Mac (`build_mac.sh`)
-- Test CLI backward compatibility (`python sender.py <ip>`)
-- Stage, commit, and create PR to close #2
-
-## Context for Resume
-- All 7 implementation steps are complete, code is written but uncommitted
-- Files created: `config.py`, `tray_sender.py`, `menubar_receiver.py`, `build_windows.bat`, `build_mac.sh`, `requirements-windows.txt`, `requirements-mac.txt`
-- Files modified: `sender.py` (Sender class), `receiver.py` (Receiver class), `requirements.txt` (shared only), `README.md`, `CLAUDE.md`
-- User stages changes manually — do not auto-stage
+## Post-Implementation Fixes
+- Fixed build scripts to use `python -m PyInstaller` instead of `pyinstaller` (not on PATH)
+- Mac build: switched from `--onefile` to `--onedir` (PyInstaller deprecation — onefile + .app bundle clash with macOS security)
+- Mac build: desktop symlink now points to `.app` bundle instead of raw binary (fixes Terminal window appearing on launch)
+- Added `.DS_Store` to `.gitignore`
+- Reduced `SILENCE_TIMEOUT` from 2.0s to 0.5s for faster menu bar status updates when sender stops
